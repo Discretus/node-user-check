@@ -17,15 +17,16 @@ Napi::Error newException(Napi::Env env, std::string text)
 Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
-    if (info.Length() != 1)
+    if (info.Length() != 1) // Проверяем количество аргументов, если != 1 то выкидываем исключение
     {
         throw newException(env, "Wrong number of arguments.");
     }
-    if (!info[0].IsString())
+    if (!info[0].IsString()) // Если в качестве аргумента была дана не строка, то выкидываем исключение
     {
         throw newException(env, "First argument must be a string.");
     }
 
+    // Полученный из функции аргумент переводим в wchar_t*
     std::string nameStr = std::string(info[0].ToString());
     std::wstring nameWstr = std::wstring(nameStr.begin(), nameStr.end());
     const WCHAR *name = nameWstr.c_str();
@@ -41,7 +42,7 @@ Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
     NET_API_STATUS nStatus;
     LPTSTR pszServerName = NULL;
 
-    do
+    do // Пока у нас есть пользователи, заносим их в буфер и проходим по нему
     {
         nStatus = NetUserEnum((LPCWSTR)pszServerName,
                               dwLevel,
@@ -63,7 +64,7 @@ Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
                     {
                         throw newException(env, "An access violation has occurred.");
                     }
-                    if (std::wcscmp(pTmpBuf->usri0_name, name) == 0)
+                    if (std::wcscmp(pTmpBuf->usri0_name, name) == 0) // Если имя пользователя найдено, возвращаем true
                     {
                         return Napi::Boolean::New(env, true);
                     }
