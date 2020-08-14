@@ -1,9 +1,7 @@
 #pragma comment(lib, "netapi32.lib")
 
 #include <napi.h>
-#include <stdio.h>
 #include <iostream>
-#include <assert.h>
 #include <windows.h>
 #include <string>
 #include <lm.h>
@@ -58,8 +56,6 @@ Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
             {
                 for (i = 0; (i < dwEntriesRead); i++)
                 {
-                    assert(pTmpBuf != NULL);
-
                     if (pTmpBuf == NULL)
                     {
                         throw newException(env, "An access violation has occurred.");

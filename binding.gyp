@@ -7,7 +7,7 @@
         "<!@(node -p \"require('node-addon-api').include\")",
       ],
       "target_name": "users",
-      "sources": [ "users.cpp" ],
+      "sources": [ "cppsrc/users.cpp" ],
       'defines': [ 'NAPI_DISABLE_CPP_EXCEPTIONS' ]
     }
   ]
