@@ -9,7 +9,7 @@
 Napi::Error newException(Napi::Env env, std::string text)
 {
     std::cout << "Addon error. " + text << std::endl;
-    throw Napi::Error::New(env, text);
+    return Napi::Error::New(env, text);
 }
 
 Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
