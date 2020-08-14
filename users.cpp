@@ -2,15 +2,33 @@
 
 #include <napi.h>
 #include <stdio.h>
+#include <iostream>
 #include <assert.h>
 #include <windows.h>
 #include <string>
 #include <lm.h>
 
-Napi::Array getUserNames(const Napi::CallbackInfo &info)
+Napi::Error newException(Napi::Env env, std::string text)
+{
+    std::cout << "Addon error. " + text << std::endl;
+    throw Napi::Error::New(env, text);
+}
+
+Napi::Boolean checkUserExists(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
-    Napi::Array userNames; // Массив в который будут заноситься все имена пользователей
+    if (info.Length() != 1)
+    {
+        throw newException(env, "Wrong number of arguments.");
+    }
+    if (!info[0].IsString())
+    {
+        throw newException(env, "First argument must be a string.");
+    }
+
+    std::string nameStr = std::string(info[0].ToString());
+    std::wstring nameWstr = std::wstring(nameStr.begin(), nameStr.end());
+    const WCHAR *name = nameWstr.c_str();
 
     LPUSER_INFO_0 pBuf = NULL;
     LPUSER_INFO_0 pTmpBuf;
@@ -23,54 +41,52 @@ Napi::Array getUserNames(const Napi::CallbackInfo &info)
     NET_API_STATUS nStatus;
     LPTSTR pszServerName = NULL;
 
-    // Вызывааем NetUserEnum чтобы получить локальные учетные записи
-    nStatus = NetUserEnum((LPCWSTR)pszServerName,
-                          dwLevel,
-                          FILTER_NORMAL_ACCOUNT,
-                          (LPBYTE *)&pBuf,
-                          dwPrefMaxLen,
-                          &dwEntriesRead,
-                          &dwTotalEntries,
-                          &dwResumeHandle);
-    // Если вызов успешен
-    if ((nStatus == NERR_Success) || (nStatus == ERROR_MORE_DATA))
+    do
     {
-        if ((pTmpBuf = pBuf) != NULL)
+        nStatus = NetUserEnum((LPCWSTR)pszServerName,
+                              dwLevel,
+                              FILTER_NORMAL_ACCOUNT,
+                              (LPBYTE *)&pBuf,
+                              dwPrefMaxLen,
+                              &dwEntriesRead,
+                              &dwTotalEntries,
+                              &dwResumeHandle);
+        if ((nStatus == NERR_Success) || (nStatus == ERROR_MORE_DATA))
         {
-            userNames = Napi::Array::New(env, dwEntriesRead); // Инициализируем массив длины равной количеству полученных пользователей
-            for (i = 0; (i < dwEntriesRead); i++)             // Пробегаем по всем полученым пользователям
+            if ((pTmpBuf = pBuf) != NULL)
             {
-                assert(pTmpBuf != NULL);
-
-                if (pTmpBuf == NULL)
+                for (i = 0; (i < dwEntriesRead); i++)
                 {
-                    fprintf(stderr, "An access violation has occurred\n");
-                    break;
+                    assert(pTmpBuf != NULL);
+
+                    if (pTmpBuf == NULL)
+                    {
+                        throw newException(env, "An access violation has occurred.");
+                    }
+                    if (std::wcscmp(pTmpBuf->usri0_name, name) == 0)
+                    {
+                        return Napi::Boolean::New(env, true);
+                    }
+                    pTmpBuf++;
                 }
-                // Так как Napi::String::New не принимает wchar и wstring, то сначала переводим в wstring, а потом в u16string
-                std::wstring userNameWstr(pTmpBuf->usri0_name);
-                std::u16string userNameU16str(userNameWstr.begin(), userNameWstr.end());
-                Napi::String userName = Napi::String::New(env, userNameU16str);
-                userNames[i] = userName; // Добавляем пользователя в массив
-                pTmpBuf++;
             }
         }
-    }
-    // Иначе выводим системную ошибку
-    else
-        fprintf(stderr, "A system error has occurred: %d\n", nStatus);
-    // Освобождаем выделенный буфер
+        else
+            throw newException(env, "A system error has occurred.");
+        if (pBuf != NULL)
+        {
+            NetApiBufferFree(pBuf);
+            pBuf = NULL;
+        }
+    } while (nStatus == ERROR_MORE_DATA);
     if (pBuf != NULL)
-    {
         NetApiBufferFree(pBuf);
-        pBuf = NULL;
-    }
-    return userNames;
+    return Napi::Boolean::New(env, false);
 }
 
 Napi::Object init(Napi::Env env, Napi::Object exports)
 {
-    exports.Set(Napi::String::New(env, "getUserNames"), Napi::Function::New(env, getUserNames));
+    exports.Set(Napi::String::New(env, "checkUserExists"), Napi::Function::New(env, checkUserExists));
     return exports;
 };
 
