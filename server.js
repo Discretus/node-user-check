@@ -29,7 +29,7 @@ app.post('/', (req, res) => {
   if (userExists(req.body.username)) {
     res.redirect('/found');
   } else {
-    res.redirect('notfound');
+    res.redirect('/notfound');
   }
 });
 
